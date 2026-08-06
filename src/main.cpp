@@ -142,12 +142,12 @@ namespace
             float cosA = cosf(cubeAngle);
             float sinA = sinf(cubeAngle);
             float spinWidth = fabsf(cosA);
-            if (spinWidth < 0.12f)
+            if (spinWidth < 0.07f)
             {
-                spinWidth = 0.12f;
+                spinWidth = 0.07f;
             }
-            float fitScale = 0.64f;
-            float brightness = 0.35f + (0.65f * spinWidth);
+            float fitScale = 0.58f;
+            float brightness = 0.18f + (0.82f * spinWidth);
 
             if (logoSpriteReady)
             {
@@ -164,7 +164,7 @@ namespace
                 {
                     float rx = destX - destCenter;
                     float ry = destY - destCenter;
-                    float srcXf = ((rx * fitScale) / spinWidth) + ((ry * sinA) * 0.10f);
+                    float srcXf = ((rx * fitScale) / spinWidth) + ((ry * sinA) * 0.18f);
                     if (cosA < 0.0f)
                     {
                         srcXf = -srcXf;
