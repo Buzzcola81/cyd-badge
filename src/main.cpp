@@ -141,13 +141,13 @@ namespace
             float destCenter = (kCubeAreaSize - 1) * 0.5f;
             float cosA = cosf(cubeAngle);
             float sinA = sinf(cubeAngle);
-            float xScale = fabsf(cosA);
-            if (xScale < 0.12f)
+            float spinWidth = fabsf(cosA);
+            if (spinWidth < 0.12f)
             {
-                xScale = 0.12f;
+                spinWidth = 0.12f;
             }
             float fitScale = 0.64f;
-            float brightness = 0.35f + (0.65f * fabsf(cosA));
+            float brightness = 0.35f + (0.65f * spinWidth);
 
             if (logoSpriteReady)
             {
@@ -164,7 +164,7 @@ namespace
                 {
                     float rx = destX - destCenter;
                     float ry = destY - destCenter;
-                    float srcXf = ((rx * fitScale) / xScale) + ((ry * sinA) * 0.10f);
+                    float srcXf = ((rx * fitScale) / spinWidth) + ((ry * sinA) * 0.10f);
                     if (cosA < 0.0f)
                     {
                         srcXf = -srcXf;
@@ -227,11 +227,15 @@ namespace
     uint32_t lastWifiRetryMs = 0;
     wl_status_t lastWifiStatus = WL_IDLE_STATUS;
     bool wifiStatusDirty = false;
+    uint8_t wifiConnectAttempts = 0;
 
     constexpr uint8_t kGithubErrorAfterFailures = 3;
     constexpr uint32_t kGithubFallbackRetryDelayMs = 15UL * 60UL * 1000UL;
     constexpr uint32_t kGithubMinRetryDelayMs = 3000;
     constexpr uint32_t kGithubMaxRetryDelayMs = 6UL * 60UL * 60UL * 1000UL;
+    constexpr uint32_t kWifiRetryIntervalMs = 15000;
+    constexpr uint32_t kWifiConnectTimeoutMs = 12000;
+    constexpr uint8_t kWifiMaxSoftRetries = 2;
 
     constexpr const char *kApName = "CYD-Badge-Setup";
     constexpr const char *kApPassword = "badgeconfig";
@@ -590,11 +594,28 @@ namespace
         }
 
         uint8_t temp[256];
-        while (http.connected() && (contentLen > 0 || contentLen == -1))
+        uint32_t lastDataMs = millis();
+        while (contentLen > 0 || contentLen == -1)
         {
             size_t available = stream->available();
             if (available == 0)
             {
+                if (!http.connected())
+                {
+                    if (contentLen == -1)
+                    {
+                        break;
+                    }
+                    http.end();
+                    out.clear();
+                    return false;
+                }
+                if (millis() - lastDataMs > 5000)
+                {
+                    http.end();
+                    out.clear();
+                    return false;
+                }
                 delay(1);
                 continue;
             }
@@ -622,6 +643,7 @@ namespace
             try
             {
                 out.insert(out.end(), temp, temp + bytesRead);
+                lastDataMs = millis();
             }
             catch (const std::bad_alloc &)
             {
@@ -638,6 +660,38 @@ namespace
 
         http.end();
         return !out.empty();
+    }
+
+    bool isPngBuffer(const std::vector<uint8_t> &buf)
+    {
+        static const uint8_t kPngSig[8] = {0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+        if (buf.size() < 8)
+        {
+            return false;
+        }
+        for (int i = 0; i < 8; ++i)
+        {
+            if (buf[(size_t)i] != kPngSig[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool downloadAvatarPngFromUrl(const String &url)
+    {
+        if (!downloadToBuffer(url, avatarPng, 80 * 1024))
+        {
+            return false;
+        }
+        if (!isPngBuffer(avatarPng))
+        {
+            Serial.printf("avatar non-png from: %s\n", url.c_str());
+            avatarPng.clear();
+            return false;
+        }
+        return true;
     }
 
     bool fetchContributionStats()
@@ -708,24 +762,31 @@ namespace
         avatarLoaded = false;
         avatarPng.clear();
 
-        String url = profileAvatarUrl;
-        if (url.isEmpty())
+        String primaryUser = profileLogin.length() > 0 ? profileLogin : githubUser;
+        String githubPng = "https://github.com/" + primaryUser + ".png?size=96";
+        String githubPngFallback = "https://github.com/" + githubUser + ".png?size=96";
+        String avatarsByLogin = "https://avatars.githubusercontent.com/" + primaryUser + "?size=96";
+        String avatarsByUser = "https://avatars.githubusercontent.com/" + githubUser + "?size=96";
+
+        bool ok = false;
+        if (downloadAvatarPngFromUrl(githubPng))
         {
-            url = "https://github.com/" + githubUser + ".png?size=96";
+            ok = true;
         }
-        else
+        else if (downloadAvatarPngFromUrl(avatarsByLogin))
         {
-            if (url.indexOf('?') >= 0)
-            {
-                url += "&s=96";
-            }
-            else
-            {
-                url += "?s=96";
-            }
+            ok = true;
+        }
+        else if (downloadAvatarPngFromUrl(githubPngFallback))
+        {
+            ok = true;
+        }
+        else if (downloadAvatarPngFromUrl(avatarsByUser))
+        {
+            ok = true;
         }
 
-        if (!downloadToBuffer(url, avatarPng, 80 * 1024))
+        if (!ok)
         {
             Serial.println("avatar download failed");
             return false;
@@ -778,7 +839,6 @@ namespace
         {
             tft.setTextColor(TFT_WHITE, TFT_BLACK);
             tft.setCursor(8, 74);
-            tft.print("Name ");
             tft.println(profileName);
         }
 
@@ -907,20 +967,30 @@ namespace
         prefs.end();
     }
 
-    void connectStaIfConfigured()
+    void connectStaIfConfigured(bool forceClean = false)
     {
         if (wifiSsid.isEmpty())
         {
             return;
         }
 
-        WiFi.disconnect(true, true);
-        delay(100);
+        if (forceClean)
+        {
+            WiFi.disconnect(true, true);
+            delay(150);
+        }
+        else
+        {
+            WiFi.disconnect(false, false);
+            delay(100);
+        }
         WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
+        wifiConnectAttempts++;
         wifiConnectStartedMs = millis();
         lastWifiRetryMs = wifiConnectStartedMs;
         lastWifiStatus = WiFi.status();
         wifiStatusDirty = true;
+        Serial.printf("wifi begin attempt=%u clean=%d\n", (unsigned)wifiConnectAttempts, forceClean ? 1 : 0);
     }
 
     bool fetchGitHubStats()
@@ -1111,6 +1181,7 @@ void setup()
     drawMultilineStatus("Starting setup portal...");
 
     WiFi.mode(WIFI_AP_STA);
+    WiFi.setAutoReconnect(true);
     WiFi.softAP(kApName, kApPassword);
     dnsServer.start(53, "*", WiFi.softAPIP());
 
@@ -1141,6 +1212,11 @@ void loop()
     uint32_t nowMs = millis();
 
     wl_status_t wifiStatus = WiFi.status();
+    if (wifiStatus == WL_CONNECTED)
+    {
+        wifiConnectAttempts = 0;
+        wifiConnectStartedMs = 0;
+    }
     if (wifiStatus != lastWifiStatus)
     {
         lastWifiStatus = wifiStatus;
@@ -1156,10 +1232,16 @@ void loop()
             wifiStatusDirty = false;
         }
 
-        if (nowMs - lastWifiRetryMs > 15000)
+        bool timedOut = (wifiConnectStartedMs > 0) && ((nowMs - wifiConnectStartedMs) > kWifiConnectTimeoutMs);
+        bool retryWindow = (nowMs - lastWifiRetryMs) > kWifiRetryIntervalMs;
+        bool immediateRetryState = (wifiStatus == WL_CONNECT_FAILED || wifiStatus == WL_NO_SSID_AVAIL || wifiStatus == WL_CONNECTION_LOST);
+        bool stuckIdle = (wifiStatus == WL_IDLE_STATUS) && timedOut;
+
+        if ((timedOut && retryWindow) || (immediateRetryState && retryWindow) || (stuckIdle && retryWindow))
         {
+            bool forceClean = stuckIdle || (wifiConnectAttempts > kWifiMaxSoftRetries);
             Serial.println("wifi retrying...");
-            connectStaIfConfigured();
+            connectStaIfConfigured(forceClean);
         }
     }
 
