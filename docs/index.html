@@ -4,12 +4,21 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CYD Badge</title>
+    <meta name="color-scheme" content="dark" />
+    <title>CYD Badge Flasher</title>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
     <style>
         :root {
-            --bg: #0f172a;
-            --fg: #e2e8f0;
-            --accent: #22d3ee;
+            --bg: #09111f;
+            --bg-soft: #112136;
+            --panel: rgba(8, 17, 30, 0.86);
+            --line: rgba(117, 255, 195, 0.16);
+            --text: #e8f4ff;
+            --muted: #91a8c2;
+            --mint: #7dffbf;
+            --teal: #19d7a7;
+            --cyan: #42d6ff;
+            --shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
         }
 
         * {
@@ -19,25 +28,260 @@
         body {
             margin: 0;
             min-height: 100vh;
-            display: grid;
-            place-items: center;
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            color: var(--fg);
-            background: radial-gradient(circle at top, #1e293b, var(--bg));
+            color: var(--text);
+            background:
+                radial-gradient(circle at 15% 20%, rgba(25, 215, 167, 0.2), transparent 28%),
+                radial-gradient(circle at 80% 10%, rgba(66, 214, 255, 0.18), transparent 26%),
+                linear-gradient(160deg, var(--bg) 0%, #0b1426 38%, #101d31 100%);
+        }
+
+        main {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 36px 0 48px;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.2fr 0.9fr;
+            gap: 24px;
+            align-items: stretch;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .lead {
+            padding: 36px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .lead::after {
+            content: "";
+            position: absolute;
+            inset: auto -40px -80px auto;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(125, 255, 191, 0.28), transparent 65%);
+            filter: blur(18px);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(125, 255, 191, 0.08);
+            color: var(--mint);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-size: 0.76rem;
+            font-weight: 700;
         }
 
         h1 {
+            margin: 18px 0 14px;
+            font-size: clamp(2.5rem, 5vw, 4.8rem);
+            line-height: 0.96;
+            letter-spacing: -0.04em;
+        }
+
+        .lead p {
             margin: 0;
-            font-size: clamp(2rem, 6vw, 4rem);
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--accent);
+            max-width: 44rem;
+            font-size: 1.05rem;
+            line-height: 1.65;
+            color: var(--muted);
+        }
+
+        .facts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .fact {
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        .flash {
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 18px;
+            background:
+                linear-gradient(180deg, rgba(17, 33, 54, 0.92), rgba(8, 17, 30, 0.95)),
+                linear-gradient(135deg, rgba(125, 255, 191, 0.1), transparent 40%);
+        }
+
+        .flash h2,
+        .steps h2,
+        .notes h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            letter-spacing: 0.02em;
+        }
+
+        .flash p,
+        .notes p,
+        .notes li,
+        .steps li {
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .install-wrap {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 62px;
+        }
+
+        esp-web-install-button {
+            --esp-tools-button-color: #04131e;
+            --esp-tools-button-text-color: #eafff8;
+            --esp-tools-button-background: linear-gradient(135deg, var(--mint), var(--teal));
+        }
+
+        .alt-link {
+            color: var(--cyan);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .grid {
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .steps,
+        .notes {
+            padding: 26px;
+        }
+
+        ol,
+        ul {
+            margin: 14px 0 0;
+            padding-left: 20px;
+        }
+
+        li+li {
+            margin-top: 10px;
+        }
+
+        .code {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.92rem;
+        }
+
+        .browser-note {
+            padding: 12px 14px;
+            border-left: 3px solid var(--mint);
+            background: rgba(125, 255, 191, 0.08);
+            border-radius: 0 14px 14px 0;
+        }
+
+        @media (max-width: 860px) {
+
+            .hero,
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            main {
+                width: min(100% - 20px, 1120px);
+                padding-top: 20px;
+            }
+
+            .lead,
+            .flash,
+            .steps,
+            .notes {
+                padding: 22px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <h1>CYD Badge</h1>
+    <main>
+        <section class="hero">
+            <article class="panel lead">
+                <div class="eyebrow">CYD Badge Firmware</div>
+                <h1>Connect your CYD.<br>Flash from the browser.</h1>
+                <p>Use a Chromium-based browser to install the latest CYD Badge firmware directly over USB. No local
+                    toolchain, no CLI, no manual offsets.</p>
+                <div class="facts">
+                    <div class="fact">ESP32 CYD target</div>
+                    <div class="fact">USB serial flashing</div>
+                    <div class="fact">Manifest-driven install</div>
+                </div>
+            </article>
+
+            <aside class="panel flash">
+                <h2>Flash Firmware</h2>
+                <p>Plug in the CYD with a data-capable USB cable, click connect, choose the serial port, then install.
+                </p>
+                <div class="install-wrap">
+                    <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+                </div>
+                <div class="browser-note">
+                    Works best in Chrome or Edge on desktop where Web Serial is available.
+                </div>
+                <a class="alt-link" href="manifest.json">Open firmware manifest</a>
+            </aside>
+        </section>
+
+        <section class="grid">
+            <article class="panel steps">
+                <h2>How To Flash</h2>
+                <ol>
+                    <li>Open this page in Chrome or Edge on Windows, macOS, or Linux.</li>
+                    <li>Connect the CYD over USB using a cable that supports data.</li>
+                    <li>Click the install button and pick the device serial port.</li>
+                    <li>If prompted, allow erase and install so all firmware parts are written correctly.</li>
+                    <li>Wait for the board to reboot, then open the setup portal on the device.</li>
+                </ol>
+            </article>
+
+            <article class="panel notes">
+                <h2>Troubleshooting</h2>
+                <ul>
+                    <li>If no serial port appears, swap the USB cable first. Power-only cables waste time.</li>
+                    <li>If the browser says the port is busy, close serial monitors, PlatformIO, Arduino IDE, or any
+                        terminal using the board.</li>
+                    <li>If flashing fails mid-way, reconnect the board and retry with the install button again.</li>
+                </ul>
+                <div class="code">Firmware files are published from GitHub Pages using the same manifest consumed by the
+                    browser flasher.</div>
+            </article>
+        </section>
+    </main>
 </body>
 
 </html>
