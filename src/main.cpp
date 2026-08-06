@@ -141,6 +141,13 @@ namespace
             float destCenter = (kCubeAreaSize - 1) * 0.5f;
             float cosA = cosf(cubeAngle);
             float sinA = sinf(cubeAngle);
+            float xScale = fabsf(cosA);
+            if (xScale < 0.12f)
+            {
+                xScale = 0.12f;
+            }
+            float fitScale = 0.64f;
+            float brightness = 0.35f + (0.65f * fabsf(cosA));
 
             if (logoSpriteReady)
             {
@@ -157,15 +164,30 @@ namespace
                 {
                     float rx = destX - destCenter;
                     float ry = destY - destCenter;
-                    float srcXf = (rx * cosA) + (ry * sinA) + srcCenter;
-                    float srcYf = (-rx * sinA) + (ry * cosA) + srcCenter;
+                    float srcXf = ((rx * fitScale) / xScale) + ((ry * sinA) * 0.10f);
+                    if (cosA < 0.0f)
+                    {
+                        srcXf = -srcXf;
+                    }
+                    float srcYf = (ry * fitScale) + srcCenter;
+                    srcXf += srcCenter;
 
                     int srcX = (int)(srcXf + 0.5f);
                     int srcY = (int)(srcYf + 0.5f);
                     uint16_t color = TFT_BLACK;
                     if (srcX >= 0 && srcX < kVersentLogoRenderSize && srcY >= 0 && srcY < kVersentLogoRenderSize)
                     {
-                        color = versentLogoPixels[(srcY * kVersentLogoRenderSize) + srcX];
+                        uint16_t raw = versentLogoPixels[(srcY * kVersentLogoRenderSize) + srcX];
+                        if (raw != TFT_BLACK)
+                        {
+                            uint8_t r = (uint8_t)((raw >> 11) & 0x1F);
+                            uint8_t g = (uint8_t)((raw >> 5) & 0x3F);
+                            uint8_t b = (uint8_t)(raw & 0x1F);
+                            r = (uint8_t)(r * brightness);
+                            g = (uint8_t)(g * brightness);
+                            b = (uint8_t)(b * brightness);
+                            color = (uint16_t)((r << 11) | (g << 5) | b);
+                        }
                     }
                     if (logoSpriteReady)
                     {
