@@ -46,7 +46,8 @@ namespace
     int16_t avatarDrawX = 140;
     int16_t avatarDrawY = 38;
     constexpr int16_t kAvatarSize = 92;
-    uint16_t avatarLineBuffer[kAvatarSize];
+    constexpr int16_t kAvatarSourceMaxSize = 128;
+    uint16_t avatarLineBuffer[kAvatarSourceMaxSize];
 
     std::vector<uint8_t> versentLogoPng;
     bool versentLogoLoaded = false;
@@ -114,7 +115,7 @@ namespace
         {
             versentLogoPixels[i] = TFT_BLACK;
         }
-        String url = "https://versent.com.au/wp-content/uploads/2025/12/cropped-V-mark-Green-270x270.png";
+        String url = "https://raw.githubusercontent.com/Buzzcola81/cyd-badge/main/docs/versent-logo.png";
         if (!downloadToBuffer(url, versentLogoPng, 48 * 1024))
         {
             return false;
@@ -534,11 +535,15 @@ namespace
     int avatarPngDraw(PNGDRAW *pDraw)
     {
         int16_t width = pDraw->iWidth;
+        if (width > kAvatarSourceMaxSize)
+        {
+            width = kAvatarSourceMaxSize;
+        }
+        png.getLineAsRGB565(pDraw, avatarLineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
         if (width > kAvatarSize)
         {
             width = kAvatarSize;
         }
-        png.getLineAsRGB565(pDraw, avatarLineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
         tft.pushImage(avatarDrawX, avatarDrawY + pDraw->y, width, 1, avatarLineBuffer);
         return 1;
     }
@@ -763,10 +768,11 @@ namespace
         avatarPng.clear();
 
         String primaryUser = profileLogin.length() > 0 ? profileLogin : githubUser;
-        String githubPng = "https://github.com/" + primaryUser + ".png?size=96";
-        String githubPngFallback = "https://github.com/" + githubUser + ".png?size=96";
-        String avatarsByLogin = "https://avatars.githubusercontent.com/" + primaryUser + "?size=96";
-        String avatarsByUser = "https://avatars.githubusercontent.com/" + githubUser + "?size=96";
+        String avatarSize = String(kAvatarSize);
+        String githubPng = "https://github.com/" + primaryUser + ".png?size=" + avatarSize;
+        String githubPngFallback = "https://github.com/" + githubUser + ".png?size=" + avatarSize;
+        String avatarsByLogin = "https://avatars.githubusercontent.com/" + primaryUser + "?size=" + avatarSize;
+        String avatarsByUser = "https://avatars.githubusercontent.com/" + githubUser + "?size=" + avatarSize;
 
         bool ok = false;
         if (downloadAvatarPngFromUrl(githubPng))
